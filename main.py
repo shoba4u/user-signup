@@ -17,126 +17,110 @@
 import webapp2
 import cgi
 import re
-page_header = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Signup</title>
-    <style type="text/css">
-        .error {
-            color: red;
-        }
-    </style>
-</head>
-<body>
-"""
-   
-page_footer = """
-</body>
-</html>
+
+form = """
+<h1>Sign Up</h1>
+<br>
+<form method="post" action="/posthandler">
+<label> Username:
+    <br>
+    <input type="text" name="username" value="%(username)s">
+    <div style="color: red;">%(username_error)s</div>
+    <br>
+</label>
+<label> Password:
+    <br>
+    <input type="password" name="password" value="%(password)s">
+    <div style="color: red;">%(password_error)s</div>
+    <br>
+</label>
+<label> Verify Password:
+    <br>
+    <input type="password" name="verify_password" value="%(verify_password)s">
+    <div style="color: red;">%(verify_password_error)s</div>
+    <br>
+</label>
+<label> Email (optional):
+    <br>
+    <input type="email" name="email" value="%(email)s">
+    <div style="color: red;">%(email_error)s</div>
+    <br>
+</label>
+    <br>
+<input type="submit">
+</form>
 """
 
-USER_VA = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+def html_escape(s):
+    #To capture the error 
+    return cgi.escape(s, quote = True)
+
+username_verify = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
 def valid_username(username):
-    return username and USER_VA.match(username)
+    #Validating username
+    return username_verify.match(username)
 
-PASS_VA = re.compile(r"^.{3,20}$")
+password_verify = re.compile(r"^.{3,20}$")
 def valid_password(password):
-    return password and PASS_VA.match(password)
+    #Validating Password
+    return password_verify.match(password)
 
-EMAIL_VA = re.compile(r"^[\S]+@[\S]+.[\S]+$")
+email_verify = re.compile("^[\S]+@[\S]+.[\S]+$")
 def valid_email(email):
-    return not email or EMAIL_VA.match(email)
+    #Validating E-Mail
+    return email_verify.match(email)
 
-class Index(webapp2.RequestHandler):
+class MainHandler(webapp2.RequestHandler):
+    def write_form(self, username="", username_error="", password="", password_error="",
+    verify_password="", verify_password_error="", email="", email_error=""):
+        self.response.write(form % {
+        "username": username,
+        "username_error": username_error,
+        "password": password,
+        "password_error": password_error,
+        "verify_password": verify_password,
+        "verify_password_error": verify_password_error,
+        "email": email,
+        "email_error": email_error})
+
     def get(self):
+        self.write_form()
 
-        signup_header = "<h1>Signup</h1>"
-
-        username_form = """ 
-        <form action="/username" method="post" autocomplete="on">
-            <table>
-                <tr>
-                    <td><label for="username">Username</label></td>
-                    <td>
-                        <input name="username" type="text" value="" required >
-                    </td>
-                    
-                </tr>
-                <tr>
-                    <td><label for="password">Password</label></td>
-                    <td>
-                        <input name="password" type="password" required autocomplete="off">
-                    </td>
-                    
-                </tr>
-                <tr>
-                    <td><label for="verify">Verify Password</label></td>
-                    <td>
-                        <input name="verify" type="password" required autocomplete="off">
-                    </td>
-                    
-                </tr>
-                <tr>
-                    <td><label for="email">Email (optional)</label></td>
-                    <td>
-                        <input name="email" type="email" value="" >
-                    </td>
-                    
-                </tr>
-            </table>
-            <input type="submit">
-        </form>
-        """
-         
-        # if we have an error, make a <p> to display it
-        error = self.request.get("error")
-        error_element = "<p class='error'>" + error + "</p>" if error else ""
-     
-
-        content = page_header+signup_header+username_form+page_footer+error_element
-        self.response.write(content)
-
-class Signup(webapp2.RequestHandler):
-    
+class PostHandler(MainHandler):
     def post(self):
+        username_form = html_escape(self.request.get('username'))
+        password_form = html_escape(self.request.get('password'))
+        verify_password_form = html_escape(self.request.get('verify_password'))
+        email_form = html_escape(self.request.get('email'))
 
-        username = self.request.get('username')
-        password = self.request.get('password')
-        verify = self.request.get('verify')
-        email = self.request.get('email')
+        username_error = ""
+        password_error = ""
+        verify_password_error = ""
+        email_error = ""
 
 
-        if not valid_username(username):
-            error = "That's not a valid username"
-            error_escaped = cgi.escape(error, quote=True)
-            self.response.write(error_escaped)
-            self.redirect("/?error=" + error_escaped)
+        if not valid_username(username_form):
+            username_error = "Please enter a valid username."
 
-        elif not valid_password(password):
-            error = "That's not a valid password"
-            error_escaped = cgi.escape(error, quote=True)
-            self.response.write(error_escaped)
-            self.redirect("/?error=" + error_escaped)
+        if not valid_password(password_form):
+            password_error = "Please enter a valid password."
 
-        elif password != verify:
-            error = "Your passwords didn't match"
-            error_escaped = cgi.escape(error, quote=True)
-            self.response.write(error_escaped) 
-            self.redirect("/?error=" + error_escaped)
+        if password_form != verify_password_form:
+            verify_password_error = "Verification does not match password."
 
-        elif not valid_email(email):
-            error = "That's not a valid email"
-            error_escaped = cgi.escape(error, quote=True)
-            self.response.write(error_escaped)
-            self.redirect("/?error=" + error_escaped)
+        if  not valid_email(email_form) and email_form != "":
+            email_error = "Please enter a valid email."
+
+        if username_error != "" or password_error != "" or verify_password_error != "" or email_error != "":
+            self.write_form(username_form, username_error, password_form,
+            password_error, verify_password_form, verify_password_error, email_form)
 
         else:
-            confirmation = "<h1>" + "Welcome," + username + "</h1>"
-            self.response.write(confirmation)
-    
+            self.response.write("<h1>" + "Welcome, " + username_form + "!" + "</h1>")
+
+
 
 app = webapp2.WSGIApplication([
-    ('/', Index),
-    ('/username',Signup)
+    ('/', MainHandler),
+    ('/posthandler', PostHandler)
 ], debug=True)
